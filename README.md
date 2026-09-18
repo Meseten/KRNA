@@ -107,6 +107,40 @@ print(tuner.tune())
 
 Supported parameter types: `int`, `float`, `log_float`, `categorical`.
 
+### Tuning a random forest
+
+The same interface works for any scikit-learn estimator — the tuner detects
+automatically whether the model accepts a `random_state` argument. Here is a
+RandomForestClassifier on the same dataset, mixing integer, log-scaled and
+categorical hyperparameters in one search space:
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_breast_cancer
+from krna.ml_tuning import SKROAMLTuner
+
+data = load_breast_cancer()
+space = {
+    "n_estimators": {"type": "int", "min": 25, "max": 400},
+    "max_depth":    {"type": "int", "min": 2, "max": 20},
+    "max_features": {"type": "categorical", "values": ["sqrt", "log2"]},
+    "min_samples_leaf": {"type": "log_float", "min": 1e-3, "max": 0.3},
+}
+
+tuner = SKROAMLTuner(model_class=RandomForestClassifier, param_space=space,
+                     X=data.data, y=data.target, cv_folds=5,
+                     n_agents=20, max_iters=30, seed=101)
+result = tuner.tune()
+print(result["best_hyperparams"])         # decoded hyperparameter dict
+print(f"CV accuracy: {result['best_accuracy_percent']:.2f}%")
+```
+
+Continuous coordinates are decoded with a **log scale** for `log_float`
+parameters, so the swarm explores `min_samples_leaf` between `1e-3` and `0.3`
+evenly across orders of magnitude — the same trick RandomizedSearchCV uses.
+Candidate models are cross-validated in parallel (`n_jobs=-1`); invalid
+combinations score worst instead of crashing the run.
+
 ## Command line
 
 ```bash
