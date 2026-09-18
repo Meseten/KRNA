@@ -30,6 +30,8 @@ def zdt1(x: np.ndarray) -> np.ndarray:
     """
     arr = _ensure_2d(np.asarray(x, dtype=np.float64))
     n_samples, dim = arr.shape
+    if dim < 2:
+        raise ValueError("ZDT functions require dimensionality D >= 2.")
     
     # Objective 1: f1(x) = x_1
     f1 = arr[:, 0]
@@ -49,6 +51,8 @@ def zdt2(x: np.ndarray) -> np.ndarray:
     """
     arr = _ensure_2d(np.asarray(x, dtype=np.float64))
     n_samples, dim = arr.shape
+    if dim < 2:
+        raise ValueError("ZDT functions require dimensionality D >= 2.")
     
     f1 = arr[:, 0]
     g = 1.0 + 9.0 * np.sum(arr[:, 1:], axis=1) / (dim - 1.0)

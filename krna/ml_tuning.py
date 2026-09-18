@@ -11,9 +11,6 @@ import time
 from typing import Any, Callable
 import numpy as np
 
-# ML Stack
-from sklearn.svm import SVC
-from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 from joblib import Parallel, delayed
 
@@ -36,12 +33,27 @@ class HyperparameterMapper:
         self.param_space = param_space
         self.keys = list(param_space.keys())
         self.dim = len(self.keys)
+        
+        if self.dim == 0:
+            raise ValueError("param_space must define at least one hyperparameter")
+        for key, space in param_space.items():
+            ptype = space.get("type")
+            if ptype in ("int", "float", "log_float"):
+                if not ("min" in space and "max" in space) or not space["max"] > space["min"]:
+                    raise ValueError(f"Hyperparameter '{key}' needs finite min < max")
+            elif ptype == "categorical":
+                if not space.get("values"):
+                    raise ValueError(f"Categorical hyperparameter '{key}' needs a non-empty 'values' list")
+            else:
+                raise ValueError(f"Hyperparameter '{key}' has unknown type: {ptype!r}")
 
     def decode(self, vector: np.ndarray) -> dict[str, Any]:
         """
         Maps a single continuous vector in [0.0, 1.0]^D to a parameter dictionary.
         """
         params = {}
+        if len(vector) < self.dim:
+            raise ValueError(f"Vector of length {len(vector)} cannot decode {self.dim} hyperparameters")
         for i, key in enumerate(self.keys):
             val = np.clip(vector[i], 0.0, 1.0) # Ensure strict [0, 1] bounds
             space = self.param_space[key]
@@ -117,7 +129,11 @@ class SKROAMLTuner:
         Decodes coordinates, trains the model via CV, and returns (1 - accuracy).
         """
         hyperparams = self.mapper.decode(coords)
-        model = self.model_class(**hyperparams, random_state=42 if 'random_state' in self.model_class().get_params() else None)
+        try:
+            model = self.model_class(**hyperparams, random_state=42)
+        except TypeError:
+            # Estimator has no random_state parameter (e.g. KNeighborsClassifier)
+            model = self.model_class(**hyperparams)
         
         try:
             # Calculate cross-validation accuracy
@@ -168,6 +184,9 @@ class SKROAMLTuner:
 
 
 if __name__ == "__main__":
+    from sklearn.svm import SVC
+    from sklearn.datasets import load_breast_cancer
+
     # 1. Load a real-world dataset (Breast Cancer Classification)
     print("[INFO] Loading Breast Cancer Dataset...")
     data = load_breast_cancer()

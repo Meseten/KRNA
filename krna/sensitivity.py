@@ -14,11 +14,6 @@ import csv
 import time
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-
 from krna.benchmarks import get_benchmark
 from krna.skroa import SKROA
 
@@ -112,26 +107,30 @@ def execute_sensitivity_sweep(
     print(f"[SUCCESS] Grid search completed in {total_time:.2f} seconds.")
     
     # ==============================================================================
-    # HEATMAP VISUALIZATION (Fixed for identical value crashes)
+    # HEATMAP VISUALIZATION (NaN-safe LogNorm handling)
     # ==============================================================================
+    
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
     
     fig, ax = plt.subplots(figsize=(8, 6))
     
-    vmin = float(np.min(mean_fitness_matrix))
-    vmax = float(np.max(mean_fitness_matrix))
-    
-    # Strict fallback check to prevent Matplotlib LogNorm crash
-    if np.isnan(vmin) or np.isnan(vmax) or vmin >= vmax:
-        vmin = max(vmin * 0.9, 1e-8)
-        vmax = max(vmax * 1.1, 1e-7)
+    finite_vals = mean_fitness_matrix[np.isfinite(mean_fitness_matrix)]
+    if finite_vals.size == 0:
+        # No usable data at all: skip normalization entirely
+        vmin, vmax = None, None
     else:
-        vmin = max(vmin, 1e-8)
-        vmax = max(vmax, 1e-7)
+        vmin = max(float(np.min(finite_vals)), 1e-8)
+        vmax = max(float(np.max(finite_vals)), vmin * 10.0)  # Keep vmax > vmin for LogNorm
+        
+    norm = None if vmin is None else LogNorm(vmin=vmin, vmax=vmax)
     
     cax = ax.imshow(
         mean_fitness_matrix, 
         cmap="viridis_r",
-        norm=LogNorm(vmin=vmin, vmax=vmax),
+        norm=norm,
         aspect="auto"
     )
     
@@ -147,7 +146,8 @@ def execute_sensitivity_sweep(
     for i in range(n_tau):
         for j in range(n_eps):
             fit_val = mean_fitness_matrix[i, j]
-            text_color = "black" if cax.norm(fit_val) > 0.5 else "white"
+            norm_val = cax.norm(fit_val)
+            text_color = "black" if np.isfinite(norm_val) and norm_val > 0.5 else "white"
             annotation = f"{fit_val:.2f}\n({mean_aborts_matrix[i, j]:.0f} aborts)"
             ax.text(j, i, annotation, ha="center", va="center", color=text_color, fontsize=9)
             

@@ -1,25 +1,53 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "krna"
 version = "1.0.0"
-description = "Kawayan Rhizome Network Algorithm (SKROA) - A Biphasic Continuous Optimization Framework"
-authors = [{name = "Lead KRNA Architect"}]
+description = "Kawayan Rhizome Network Algorithm (SKROA) - a biphasic continuous optimization framework"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Ben James Duag"},
+]
+keywords = [
+    "optimization",
+    "metaheuristic",
+    "swarm-intelligence",
+    "levy-flight",
+    "particle-swarm",
+    "multi-objective",
+    "hyperparameter-tuning",
+    "pso",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26.0",
-    "scipy>=1.11.0",
-    "matplotlib>=3.8.0",
-    "scikit-learn>=1.3.0",
-    "joblib>=1.3.0"
 ]
 
+[project.optional-dependencies]
+plots = ["matplotlib>=3.8.0"]
+ml = ["scikit-learn>=1.3.0", "joblib>=1.3.0", "krna[plots]"]
+
 [project.scripts]
-# This line tells Linux to map the terminal command 'krna' to our CLI entrypoint
 krna = "krna.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Meseten/KRNA"
+Issues = "https://github.com/Meseten/KRNA/issues"
 
 [tool.setuptools.packages.find]
 include = ["krna*"]

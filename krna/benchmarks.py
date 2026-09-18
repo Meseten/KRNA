@@ -19,12 +19,6 @@ from dataclasses import dataclass
 from typing import Callable
 import numpy as np
 
-# Configure non-interactive Matplotlib backend BEFORE importing pyplot
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (Required for 3D projections)
-
 from krna.skroa import SKROA
 from krna.baselines import PSO
 
@@ -159,6 +153,10 @@ def generate_3d_surface_plot(benchmark: BenchmarkFunction, output_dir: str) -> N
     Generates and saves a high-resolution 3D surface plot of a 2D slice
     of the objective function landscape to illustrate its topological challenges.
     """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (Registers 3D projection)
     low, high = benchmark.bounds
     # Prevent excessive range visual clipping on Ackley
     plot_low = max(low, -10.0) if benchmark.name == "Ackley" else low
@@ -206,13 +204,19 @@ def plot_convergence_curves(
     benchmarks: list[BenchmarkFunction],
     skroa_curves: dict[str, np.ndarray],
     pso_curves: dict[str, np.ndarray],
-    output_dir: str
+    output_dir: str,
+    dim: int = 10
 ) -> None:
     """
-    Exports a publication-grade 1x3 subplot grid comparing the mean convergence
+    Exports a publication-grade subplot grid comparing the mean convergence
     trajectories of SKROA and PSO across all tested landscapes on a log scale.
     """
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5.5))
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    n_panels = max(1, len(benchmarks))
+    fig, axes = plt.subplots(1, n_panels, figsize=(6.0 * n_panels, 5.5), squeeze=False)
+    axes = axes[0]
     fig.suptitle(
         "KRNA Algorithm Optimization: SKROA vs. Baseline PSO Convergence Trajectories",
         fontsize=15,
@@ -229,7 +233,7 @@ def plot_convergence_curves(
         ax.plot(iters, skroa_mean, label="SKROA (Biphasic + Pruning)", color="#1f77b4", linewidth=2.2)
         ax.plot(iters, pso_mean, label="PSO (Baseline)", color="#d62728", linewidth=2.0, linestyle="--")
 
-        ax.set_title(f"{bench.name} Landscape ($D=10$)", fontsize=12, fontweight="bold")
+        ax.set_title(f"{bench.name} Landscape ($D={dim}$)", fontsize=12, fontweight="bold")
         ax.set_xlabel("Iteration ($t$)", fontsize=11)
         ax.set_ylabel("Best Objective Value $\\bar{f}(\\mathbf{g}^*)$", fontsize=11)
         ax.set_yscale("log")
@@ -354,7 +358,7 @@ def execute_benchmarking_suite(
                     f"Aborts: {mean_aborts:4.1f}"
                 )
 
-    plot_convergence_curves(benchmarks, skroa_convergence_store, pso_convergence_store, output_plots_dir)
+    plot_convergence_curves(benchmarks, skroa_convergence_store, pso_convergence_store, output_plots_dir, dim=dim)
     print("=" * 90)
     print(f"[SUCCESS] Telemetry metrics saved to     : {csv_path}")
     print(f"[SUCCESS] Convergence & 3D plots saved to: {output_plots_dir}/")

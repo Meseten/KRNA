@@ -8,8 +8,8 @@ Provides vectorized HPC kernels for:
 """
 
 from __future__ import annotations
+import math
 import numpy as np
-from scipy.special import gamma
 
 
 def levy_flight_step(
@@ -42,8 +42,8 @@ def levy_flight_step(
     if rng is None:
         rng = np.random.default_rng()
 
-    num = gamma(1.0 + beta) * np.sin(np.pi * beta / 2.0)
-    den = gamma((1.0 + beta) / 2.0) * beta * (2.0 ** ((beta - 1.0) / 2.0))
+    num = math.gamma(1.0 + beta) * np.sin(np.pi * beta / 2.0)
+    den = math.gamma((1.0 + beta) / 2.0) * beta * (2.0 ** ((beta - 1.0) / 2.0))
     sigma_u = (num / den) ** (1.0 / beta)
 
     u = rng.normal(loc=0.0, scale=sigma_u, size=shape)
@@ -136,10 +136,11 @@ def apply_culm_abortion(
     Applies dynamic memory pruning (Culm-Abortion) to agents stuck in local
     exploitation basins.
 
-    If an agent is in State 1 (Vertical Shoot) and absolute improvement is below
-    tau_stagnation for max_stagnation_steps consecutive evaluations, its thread
-    is aborted: state resets to 0 (Rhizome Creep), counter resets to 0, and
-    coordinates are reallocated around `global_best_position`.
+    If an agent is in State 1 (Vertical Shoot) and its minimization improvement
+    (previous_fitness - current_fitness) is below tau_stagnation for
+    max_stagnation_steps consecutive evaluations, its thread is aborted: state
+    resets to 0 (Rhizome Creep), counter resets to 0, and coordinates are
+    reallocated around `global_best_position`.
 
     Args:
         positions: Current agent positions of shape (N, D).
@@ -168,8 +169,9 @@ def apply_culm_abortion(
     states_out = np.copy(states)
     counters_out = np.copy(stagnation_counters)
 
-    # 1. Measure absolute fitness progress
-    delta_f = np.abs(current_fitness - previous_fitness)
+    # 1. Measure signed minimization progress: positive means fitness improved
+    # (got lower). Regressing fitness (negative delta) counts as stagnation.
+    delta_f = previous_fitness - current_fitness
 
     # 2. Identify State 1 agents experiencing gradient stagnation
     stagnant_mask = (states_out == 1) & (delta_f < tau_stagnation)

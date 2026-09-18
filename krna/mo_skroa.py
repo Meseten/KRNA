@@ -39,11 +39,13 @@ def get_non_dominated_mask(fitness_matrix: np.ndarray) -> np.ndarray:
 class Archive:
     """External storage for the Pareto optimal set."""
     def __init__(self):
-        self.positions = np.empty((0, 0))
-        self.fitness = np.empty((0, 0))
+        self.positions: np.ndarray | None = None
+        self.fitness: np.ndarray | None = None
 
     def update(self, new_positions: np.ndarray, new_fitness: np.ndarray) -> None:
-        if self.positions.size == 0:
+        new_positions = np.atleast_2d(np.asarray(new_positions, dtype=np.float64))
+        new_fitness = np.atleast_2d(np.asarray(new_fitness, dtype=np.float64))
+        if self.positions is None:
             self.positions = np.copy(new_positions)
             self.fitness = np.copy(new_fitness)
         else:
@@ -81,6 +83,16 @@ class MOSKROA:
         self.epsilon_clamp = epsilon_clamp
         self.gamma_lr = gamma_lr
         self.levy_scale = levy_scale
+        
+        if dim < 1:
+            raise ValueError(f"dim must be >= 1, got {dim}")
+        if n_agents < 1:
+            raise ValueError(f"n_agents must be >= 1, got {n_agents}")
+        if max_iters < 1:
+            raise ValueError(f"max_iters must be >= 1, got {max_iters}")
+        low, high = bounds
+        if not (np.isfinite(low) and np.isfinite(high)) or not high > low:
+            raise ValueError(f"bounds must be finite with high > low, got {bounds!r}")
         
         self.rng = np.random.default_rng(seed)
         self.archive = Archive()
@@ -174,7 +186,7 @@ class MOSKROA:
         self.archive.update(positions, self.evaluator(positions))
         
         # Sort archive by Objective 1 for clean plotting
-        sort_idx = np.argsort(self.archive.fitness[:, 0])
+        sort_idx = np.argsort(self.archive.fitness[:, 0]) if self.archive.positions is not None else slice(0)
         
         return {
             "pareto_front_positions": self.archive.positions[sort_idx],

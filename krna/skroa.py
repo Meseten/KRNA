@@ -49,26 +49,58 @@ class SKROA:
         self.sigma_jitter = sigma_jitter
         self.levy_scale = levy_scale
         
+        if dim < 1:
+            raise ValueError(f"dim must be >= 1, got {dim}")
+        if n_agents < 1:
+            raise ValueError(f"n_agents must be >= 1, got {n_agents}")
+        if max_iters < 1:
+            raise ValueError(f"max_iters must be >= 1, got {max_iters}")
+        low, high = bounds
+        if not (np.isfinite(low) and np.isfinite(high)) or not high > low:
+            raise ValueError(f"bounds must be finite with high > low, got {bounds!r}")
+        
         self.rng = np.random.default_rng(seed)
 
-    def _compute_vectorized_gradient(self, positions: np.ndarray, base_fitness: np.ndarray, h: float = 1e-5) -> np.ndarray:
+    def _compute_vectorized_gradient(
+        self,
+        positions: np.ndarray,
+        base_fitness: np.ndarray,
+        h: float | None = None
+    ) -> np.ndarray:
         """
         Computes the forward finite-difference gradient for N_1 agents without
         Python loops over dimensions.
+
+        Probe directions are chosen per coordinate so every perturbed point
+        stays inside the declared bounds: +h where there is room above, -h
+        where there is room below, and no probe where the coordinate cannot
+        move by h in either direction (gradient reported as 0 there).
         """
         n1, d = positions.shape
         if n1 == 0:
             return np.empty((0, d), dtype=np.float64)
+        if h is None:
+            h = 1e-5 * (self.bounds[1] - self.bounds[0])
+
+        low, high = self.bounds
+        # Sign per (agent, coordinate): +1 probe up, -1 probe down, 0 no probe
+        probe_sign = np.where(
+            (high - positions) >= h,
+            1.0,
+            np.where((positions - low) >= h, -1.0, 0.0),
+        )
 
         pos_expanded = np.tile(positions[:, np.newaxis, :], (1, d, 1))
-        perturbation = np.eye(d) * h
-        pos_perturbed = pos_expanded + perturbation[np.newaxis, :, :]
+        perturbation = np.eye(d) * h * probe_sign[:, np.newaxis, :]
+        pos_perturbed = pos_expanded + perturbation
 
         flat_perturbed = pos_perturbed.reshape(n1 * d, d)
         flat_fitness = self.evaluator(flat_perturbed)
 
-        f_perturbed = flat_fitness.reshape(n1, d)
-        grad = (f_perturbed - base_fitness[:, np.newaxis]) / h
+        f_perturbed = np.asarray(flat_fitness, dtype=np.float64).reshape(n1, d)
+        denom = h * probe_sign
+        grad = (f_perturbed - base_fitness[:, np.newaxis]) / np.where(denom == 0.0, 1.0, denom)
+        grad[probe_sign == 0.0] = 0.0
         
         return grad
 
@@ -84,7 +116,12 @@ class SKROA:
         states = np.zeros(self.n_agents, dtype=int)
         stagnation_counters = np.zeros(self.n_agents, dtype=int)
         
-        current_fitness = self.evaluator(positions)
+        current_fitness = np.asarray(self.evaluator(positions), dtype=np.float64)
+        if current_fitness.shape != (self.n_agents,):
+            raise ValueError(
+                f"Evaluator must map ({self.n_agents}, {self.dim}) positions to "
+                f"shape ({self.n_agents},) fitness; got shape {current_fitness.shape}"
+            )
         previous_fitness = np.copy(current_fitness)
         
         best_idx = np.argmin(current_fitness)
@@ -97,7 +134,7 @@ class SKROA:
 
         for it in range(self.max_iters):
             if it > 0:
-                current_fitness = self.evaluator(positions)
+                current_fitness = np.asarray(self.evaluator(positions), dtype=np.float64)
                 min_idx = np.argmin(current_fitness)
                 if current_fitness[min_idx] < g_best_fit:
                     g_best_fit = current_fitness[min_idx]

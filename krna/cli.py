@@ -9,9 +9,6 @@ import sys
 import os
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 def main():
     parser = argparse.ArgumentParser(
@@ -45,7 +42,7 @@ def main():
         execute_benchmarking_suite(dim=args.dim, n_agents=args.agents, max_iters=args.iters, num_trials=args.trials)
         
     elif args.command == "tune":
-        from krna.ml_tuning import SKROAMLTuner, HyperparameterMapper
+        from krna.ml_tuning import SKROAMLTuner
         from sklearn.svm import SVC
         from sklearn.datasets import load_breast_cancer
         
@@ -64,6 +61,10 @@ def main():
         print(f"[SUCCESS] Best Accuracy: {results['best_accuracy_percent']:.2f}% | Hyperparams: {results['best_hyperparams']}")
 
     elif args.command == "mo-benchmark":
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
         from krna.mo_benchmarks import ZDT1_BENCHMARK, ZDT2_BENCHMARK
         from krna.mo_skroa import MOSKROA
         
