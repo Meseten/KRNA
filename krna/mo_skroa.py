@@ -11,6 +11,7 @@ from typing import Callable
 import numpy as np
 
 from krna.operators import levy_flight_step, apply_sympodial_clamping
+from krna.gradient import bounds_aware_gradient
 
 
 def get_non_dominated_mask(fitness_matrix: np.ndarray) -> np.ndarray:
@@ -97,34 +98,40 @@ class MOSKROA:
         self.rng = np.random.default_rng(seed)
         self.archive = Archive()
 
-    def _compute_scalarized_gradient(self, positions: np.ndarray, base_fitness: np.ndarray, h: float = 1e-5) -> np.ndarray:
+    def _compute_scalarized_gradient(self, positions: np.ndarray, base_fitness: np.ndarray, h: float | None = None) -> np.ndarray:
         """
-        Computes gradients by randomly weighting the multiple objectives.
-        This forces agents to exploit different parts of the Pareto front.
+        Computes gradient estimates of a randomly scalarized objective by
+        randomly weighting the multiple objectives. This forces agents to
+        exploit different parts of the Pareto front.
+
+        Probes are bounds-aware (see krna.gradient): the gradient is computed
+        on a scalarized view of the fitness vectors.
         """
         n1, d = positions.shape
         if n1 == 0:
             return np.empty((0, d))
+        if h is None:
+            h = 1e-5 * (self.bounds[1] - self.bounds[0])
 
         # Generate random weights for each agent, normalized to sum to 1
         weights = self.rng.random((n1, self.n_objectives))
         weights /= np.sum(weights, axis=1, keepdims=True)
 
-        pos_expanded = np.tile(positions[:, np.newaxis, :], (1, d, 1))
-        perturbation = np.eye(d) * h
-        pos_perturbed = pos_expanded + perturbation[np.newaxis, :, :]
+        # The shared kernel evaluates one flat (n1*d, D) batch in agent-major
+        # row order, so each agent's weight row is repeated d times.
+        flat_weights = np.repeat(weights, d, axis=0)
 
-        flat_perturbed = pos_perturbed.reshape(n1 * d, d)
-        flat_fitness = self.evaluator(flat_perturbed) # Shape (N1*D, M)
+        def scalarized_evaluator(X: np.ndarray) -> np.ndarray:
+            F = np.asarray(self.evaluator(X), dtype=np.float64)
+            if F.ndim == 1:  # single vector-objective row
+                F = F[np.newaxis, :]
+            return np.sum(F * flat_weights, axis=1)
 
-        f_perturbed = flat_fitness.reshape(n1, d, self.n_objectives)
-        
-        # Scalarize the perturbed fitness and base fitness
-        scalar_base = np.sum(base_fitness * weights, axis=1) # (N1,)
-        scalar_perturbed = np.sum(f_perturbed * weights[:, np.newaxis, :], axis=2) # (N1, D)
+        # Scalarize the caller-provided base fitness with the same weights
+        scalar_base = np.sum(np.asarray(base_fitness, dtype=np.float64) * weights, axis=1)
 
-        grad = (scalar_perturbed - scalar_base[:, np.newaxis]) / h
-        return grad
+        low, high = self.bounds
+        return bounds_aware_gradient(scalarized_evaluator, positions, scalar_base, low, high, h)
 
     def optimize(self) -> dict:
         low, high = self.bounds

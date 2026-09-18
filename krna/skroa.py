@@ -12,6 +12,7 @@ from typing import Callable
 import numpy as np
 
 from krna.operators import levy_flight_step, apply_sympodial_clamping, apply_culm_abortion
+from krna.gradient import bounds_aware_gradient
 
 
 class SKROA:
@@ -68,41 +69,14 @@ class SKROA:
         h: float | None = None
     ) -> np.ndarray:
         """
-        Computes the forward finite-difference gradient for N_1 agents without
-        Python loops over dimensions.
-
-        Probe directions are chosen per coordinate so every perturbed point
-        stays inside the declared bounds: +h where there is room above, -h
-        where there is room below, and no probe where the coordinate cannot
-        move by h in either direction (gradient reported as 0 there).
+        Computes the finite-difference gradient for N_1 agents without Python
+        loops over dimensions, with every probe point kept inside the bounds
+        (see krna.gradient).
         """
-        n1, d = positions.shape
-        if n1 == 0:
-            return np.empty((0, d), dtype=np.float64)
         if h is None:
             h = 1e-5 * (self.bounds[1] - self.bounds[0])
-
         low, high = self.bounds
-        # Sign per (agent, coordinate): +1 probe up, -1 probe down, 0 no probe
-        probe_sign = np.where(
-            (high - positions) >= h,
-            1.0,
-            np.where((positions - low) >= h, -1.0, 0.0),
-        )
-
-        pos_expanded = np.tile(positions[:, np.newaxis, :], (1, d, 1))
-        perturbation = np.eye(d) * h * probe_sign[:, np.newaxis, :]
-        pos_perturbed = pos_expanded + perturbation
-
-        flat_perturbed = pos_perturbed.reshape(n1 * d, d)
-        flat_fitness = self.evaluator(flat_perturbed)
-
-        f_perturbed = np.asarray(flat_fitness, dtype=np.float64).reshape(n1, d)
-        denom = h * probe_sign
-        grad = (f_perturbed - base_fitness[:, np.newaxis]) / np.where(denom == 0.0, 1.0, denom)
-        grad[probe_sign == 0.0] = 0.0
-        
-        return grad
+        return bounds_aware_gradient(self.evaluator, positions, base_fitness, low, high, h)
 
     def optimize(self) -> dict:
         """

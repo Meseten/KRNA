@@ -1,7 +1,20 @@
-# Core runtime dependency of the krna package.
+# Full development / reproduction environment for KRNA.
+#
+# For end users, prefer the package extras instead:
+#   pip install krna            # core (NumPy only)
+#   pip install "krna[plots]"   # + Matplotlib (benchmark & sensitivity harnesses)
+#   pip install "krna[ml]"      # + scikit-learn & joblib (ML hyperparameter tuning)
+
+# --- core ---
 numpy>=1.26.0
 
-# Optional extras (also available as pip extras: krna[plots], krna[ml]):
-# matplotlib>=3.8.0   # plotting: krna benchmark / krna mo-benchmark
-# scikit-learn>=1.3.0 # krna tune / SKROAMLTuner
-# joblib>=1.3.0       # parallel CV evaluation in SKROAMLTuner
+# --- plots extra: krna benchmark / krna mo-benchmark / sensitivity sweep ---
+matplotlib>=3.8.0
+
+# --- ml extra: krna tune / SKROAMLTuner ---
+scikit-learn>=1.3.0
+joblib>=1.3.0
+
+# --- release tooling ---
+build>=1.0.0
+twine>=5.0.0

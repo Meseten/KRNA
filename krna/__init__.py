@@ -31,6 +31,7 @@ from krna.skroa import SKROA
 from krna.operators import levy_flight_step, apply_sympodial_clamping, apply_culm_abortion
 from krna.baselines import PSO
 from krna.mo_skroa import MOSKROA, Archive, get_non_dominated_mask
+from krna.stats import wilcoxon_rank_sum, RankSumResult, bonferroni_correct, cohens_r
 
 __version__ = "1.0.0"
 
@@ -43,5 +44,9 @@ __all__ = [
     "levy_flight_step",
     "apply_sympodial_clamping",
     "apply_culm_abortion",
+    "wilcoxon_rank_sum",
+    "RankSumResult",
+    "bonferroni_correct",
+    "cohens_r",
     "__version__",
 ]

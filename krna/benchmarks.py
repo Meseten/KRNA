@@ -21,6 +21,7 @@ import numpy as np
 
 from krna.skroa import SKROA
 from krna.baselines import PSO
+from krna.stats import wilcoxon_rank_sum, cohens_r, bonferroni_correct
 
 
 @dataclass(frozen=True)
@@ -248,6 +249,49 @@ def plot_convergence_curves(
     plt.close(fig)
 
 
+def summarize_comparison(skroa_fits: np.ndarray, pso_fits: np.ndarray) -> dict:
+    """
+    Head-to-head statistical comparison of two final best-fitness samples.
+
+    Runs a two-sided Wilcoxon rank-sum test (Mann-Whitney U) — the standard
+    tool in the metaheuristics literature for comparing two algorithms over
+    independent runs — plus the r effect size.
+
+    Returns:
+        Dict with per-algorithm medians/means, the U statistic, two-sided
+        p-value, effect size r, and a plain-language verdict. When the test
+        is not applicable (fewer than 8 trials per algorithm), the statistics
+        are NaN and the verdict is "inconclusive" — no fabricated
+        significance.
+    """
+    skroa = np.asarray(skroa_fits, dtype=np.float64)
+    pso = np.asarray(pso_fits, dtype=np.float64)
+    out = {
+        "skroa_median": float(np.median(skroa)),
+        "pso_median": float(np.median(pso)),
+        "skroa_mean": float(np.mean(skroa)),
+        "pso_mean": float(np.mean(pso)),
+        "u_statistic": float("nan"),
+        "p_value": float("nan"),
+        "effect_size_r": float("nan"),
+        "verdict": "inconclusive",
+    }
+    try:
+        test = wilcoxon_rank_sum(skroa, pso)
+        out["u_statistic"] = test.u_statistic
+        out["p_value"] = test.p_value
+        out["effect_size_r"] = cohens_r(skroa, pso)
+        if not test.is_significant:
+            out["verdict"] = "no significant difference"
+        elif out["skroa_median"] < out["pso_median"]:
+            out["verdict"] = "SKROA significantly better"
+        else:
+            out["verdict"] = "PSO significantly better"
+    except ValueError:
+        pass  # too few trials per algorithm: leave NaN / inconclusive
+    return out
+
+
 def execute_benchmarking_suite(
     dim: int = 10,
     n_agents: int = 50,
@@ -276,7 +320,8 @@ def execute_benchmarking_suite(
         fieldnames = [
             "Benchmark", "Algorithm", "Dimension", "Agents", "Max_Iters",
             "Mean_Best_Fitness", "Std_Best_Fitness", "Mean_Exec_Time_ms",
-            "Peak_Memory_KiB", "Mean_Aborts"
+            "Peak_Memory_KiB", "Mean_Aborts",
+            "P_Value_RankSum", "Effect_Size_r", "Statistical_Verdict"
         ]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
@@ -285,8 +330,13 @@ def execute_benchmarking_suite(
             print(f"[INFO] Benchmarking Landscape: {bench.name}...")
             generate_3d_surface_plot(bench, output_plots_dir)
 
+            # Both algorithms collect the same number of independent runs so a
+            # rank-sum comparison is possible afterwards.
+            skroa_best_fits = np.zeros(num_trials)
+            pso_best_fits = np.zeros(num_trials)
+
             for algo_name in ["SKROA", "PSO"]:
-                best_fits = np.zeros(num_trials)
+                best_fits = skroa_best_fits if algo_name == "SKROA" else pso_best_fits
                 exec_times = np.zeros(num_trials)
                 peak_memories = np.zeros(num_trials)
                 aborts_counts = np.zeros(num_trials)
@@ -339,6 +389,16 @@ def execute_benchmarking_suite(
                 else:
                     pso_convergence_store[bench.name] = mean_curve
 
+                if algo_name == "PSO":
+                    stats = summarize_comparison(skroa_best_fits, pso_best_fits)
+                    stat_row = {
+                        "P_Value_RankSum": f"{stats['p_value']:.6g}" if np.isfinite(stats["p_value"]) else "NA",
+                        "Effect_Size_r": f"{stats['effect_size_r']:.3f}" if np.isfinite(stats["effect_size_r"]) else "NA",
+                        "Statistical_Verdict": stats["verdict"],
+                    }
+                else:
+                    stat_row = {"P_Value_RankSum": "NA", "Effect_Size_r": "NA", "Statistical_Verdict": "NA"}
+
                 writer.writerow({
                     "Benchmark": bench.name,
                     "Algorithm": algo_name,
@@ -349,7 +409,8 @@ def execute_benchmarking_suite(
                     "Std_Best_Fitness": f"{std_fit:.8f}",
                     "Mean_Exec_Time_ms": f"{mean_time:.2f}",
                     "Peak_Memory_KiB": f"{mean_peak_mem:.2f}",
-                    "Mean_Aborts": f"{mean_aborts:.1f}"
+                    "Mean_Aborts": f"{mean_aborts:.1f}",
+                    **stat_row
                 })
 
                 print(
@@ -357,6 +418,12 @@ def execute_benchmarking_suite(
                     f"Time: {mean_time:6.2f}ms | Peak Mem: {mean_peak_mem:6.1f}KiB | "
                     f"Aborts: {mean_aborts:4.1f}"
                 )
+
+                if algo_name == "PSO":
+                    print(
+                        f"  -> [STATS ] Wilcoxon rank-sum U={stats['u_statistic']:.1f} | "
+                        f"p={stats['p_value']:.3e} | r={stats['effect_size_r']:.2f} | {stats['verdict']}"
+                    )
 
     plot_convergence_curves(benchmarks, skroa_convergence_store, pso_convergence_store, output_plots_dir, dim=dim)
     print("=" * 90)

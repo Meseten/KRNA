@@ -102,6 +102,36 @@ class TestMOSKROAEngine(unittest.TestCase):
         self.assertGreater(pf[:, 0].max() - pf[:, 0].min(), 0.1)
 
 
+class TestMLTunerEvaluator(unittest.TestCase):
+
+    def test_evaluate_single_tolerates_estimators_without_random_state(self) -> None:
+        """
+        The tuner must not crash with TypeError for model classes that do not
+        accept random_state. The dummy model lacks fit/predict, so CV scoring
+        fails and the documented penalty fitness (1.0) is returned instead.
+        """
+        from krna.ml_tuning import SKROAMLTuner
+
+        class NoRandomState:
+            def __init__(self, C: float = 1.0):
+                self.C = C
+
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(20, 1))
+        y = (X[:, 0] > 0).astype(int)
+        tuner = SKROAMLTuner(
+            model_class=NoRandomState,
+            param_space={"C": {"type": "log_float", "min": 1e-2, "max": 1e2}},
+            X=X,
+            y=y,
+            cv_folds=2,
+            n_agents=3,
+            max_iters=1,
+            seed=0,
+        )
+        self.assertEqual(tuner._evaluate_single(np.array([0.5])), 1.0)
+
+
 class TestHyperparameterMapper(unittest.TestCase):
 
     def test_decode_linear_and_log_scales(self) -> None:

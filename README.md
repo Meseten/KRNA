@@ -118,11 +118,65 @@ krna mo-benchmark   # MO-SKROA on ZDT1/ZDT2 Pareto fronts
 Outputs land in `results/logs/` (CSV telemetry) and `results/plots/`
 (convergence curves, 3D surfaces, Pareto fronts, sensitivity heatmaps).
 
+## Statistical significance testing
+
+Comparing two metaheuristics by eyeballing mean fitness is not publishable —
+differences can be noise. The benchmark suite therefore reports, for every
+landscape, a **two-sided Wilcoxon rank-sum test** (Mann-Whitney U) between the
+SKROA and PSO final best-fitness samples, with tie correction and continuity
+correction, plus **Cohen's r** effect size. Both are implemented in
+`krna.stats` with NumPy only and are cross-checked against
+`scipy.stats.mannwhitneyu` in the test suite.
+
+Each `benchmark_metrics.csv` row for PSO carries `P_Value_RankSum`,
+`Effect_Size_r`, and a plain-language `Statistical_Verdict`; the console
+prints a `[STATS]` line per landscape. Use at least 30 independent runs
+(`--trials 30`) for stable estimates.
+
+You can also test your own samples:
+
+```python
+from krna import wilcoxon_rank_sum, cohens_r, bonferroni_correct
+
+result = wilcoxon_rank_sum(fitness_a, fitness_b)  # >= 8 runs per sample
+print(result.u_statistic, result.p_value, result.is_significant)
+print("effect size r =", cohens_r(fitness_a, fitness_b))
+adjusted = bonferroni_correct([result.p_value, 0.02])  # family-wise control
+```
+
+For multi-problem studies, adjust for multiple comparisons (Bonferroni is
+provided; Holm or Friedman + Imany–Davenport are common stronger choices).
+
+## Methodology and reproducibility
+
+- **Minimization everywhere.** Evaluators map an `(n_agents, dim)` array of
+  candidate positions to an `(n_agents,)` array of fitness values; lower is
+  better.
+- **Seeded runs.** All stochastic operators draw from a NumPy `Generator`
+  seeded at construction. Two runs with the same seed produce bit-identical
+  convergence curves (verified by test).
+- **Bounds are a hard contract.** No point is ever handed to your evaluator
+  outside `[low, high]` — gradient probes fold inward at boundaries
+  (`krna.gradient`).
+- **Exploration/exploitation split.** Agents below the fitness threshold
+  (default: the swarm median, `delta_threshold=None`) exploit via
+  finite-difference gradient descent; the rest explore via Lévy flights.
+  Stalled exploiting agents are respawned near the best solution after
+  `max_stagnation_steps` non-improving iterations (Culm-Abortion).
+- **Fair benchmarking.** SKROA and PSO receive identical iteration budgets,
+  swarm sizes, seeds, and evaluation functions per trial.
+
 ## Running the tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, ground rules,
+and pull-request checks. Notable changes are recorded in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
