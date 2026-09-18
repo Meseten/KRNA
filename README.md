@@ -118,6 +118,45 @@ krna mo-benchmark   # MO-SKROA on ZDT1/ZDT2 Pareto fronts
 Outputs land in `results/logs/` (CSV telemetry) and `results/plots/`
 (convergence curves, 3D surfaces, Pareto fronts, sensitivity heatmaps).
 
+## Benchmark results
+
+Full head-to-head run of `krna benchmark --trials 30`: SKROA vs. baseline PSO
+on three classical landscapes — **30 independent trials per algorithm per
+landscape** (seeds 1000–1029), D=10, 50 agents, 500 iterations, identical
+budgets and seeds for both algorithms. Statistics are two-sided Wilcoxon
+rank-sum tests with Cohen's r effect size (`krna.stats`), reported exactly as
+the suite prints them.
+
+| Landscape  | SKROA best fitness (mean ± std) | PSO best fitness (mean ± std) | Wilcoxon p | Effect size r | Verdict (α=0.05) |
+|------------|--------------------------------:|------------------------------:|-----------:|--------------:|------------------|
+| Rastrigin  | 14.196 ± 3.012                  | 7.368 ± 2.966                 | 5.97e-09   | 0.75          | PSO significantly better |
+| Ackley     | 3.598 ± 0.257                   | 1.3e-07 ± 1.2e-07             | 3.02e-11   | 0.86          | PSO significantly better |
+| Rosenbrock | 1855.12 ± 839.79                | 4.381 ± 1.983                 | 3.02e-11   | 0.86          | PSO significantly better |
+
+Reading the table honestly:
+
+- **The baseline PSO wins on all three landscapes at this 500-iteration
+  budget**, and it also reaches a comparable fitness in roughly 1/6 of the
+  wall-clock time (~0.4 s vs ~2.2 s per run). SKROA spends most of its budget
+  on exploration, so with equal iteration counts it converges more slowly on
+  these unimodal/mildly multimodal 10-D problems.
+- Both comparisons share one subtlety of any iteration-matched benchmark: per
+  iteration, SKROA's finite-difference gradient probes cost extra function
+  evaluations that PSO does not pay. That is the standard iteration-budget
+  convention, but evaluation-matched comparisons may narrow the gap.
+- The p-values and large effect sizes say the differences are real, not noise —
+  which is exactly why we report them rather than cherry-picking a favorable
+  setting. We publish the suite's output as-is and treat the gap as a target
+  for parameter tuning (see `krna sensitivity` harness) rather than a headline.
+
+Reproduce with:
+
+```bash
+krna benchmark --trials 30          # ~5 min on a laptop; CSV + plots in results/
+```
+
+Raw telemetry for this table: [`results/logs/benchmark_metrics.csv`](results/logs/benchmark_metrics.csv).
+
 ## Statistical significance testing
 
 Comparing two metaheuristics by eyeballing mean fitness is not publishable —

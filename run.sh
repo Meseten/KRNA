@@ -27,6 +27,6 @@ echo "[INFO] Running KRNA Unit Testing Suite..."
 python3 -m unittest discover -s tests -p "test_*.py" -v
 
 echo "[INFO] Launching Head-to-Head SKROA vs. PSO Benchmarking Suite..."
-python3 -m krna.benchmarks "$@"
+python3 -m krna.cli benchmark "$@"
 
 echo "[SUCCESS] Pipeline execution complete. Check results/logs/ and results/plots/."
