@@ -1,5 +1,11 @@
 # SKROA — Sympodial Kawayan Rhizome Optimization Algorithm
 
+[![PyPI version](https://img.shields.io/pypi/v/krna)](https://pypi.org/project/krna/)
+[![Python versions](https://img.shields.io/pypi/pyversions/krna)](https://pypi.org/project/krna/)
+[![License](https://img.shields.io/pypi/l/krna)](LICENSE)
+[![Tests](https://github.com/Meseten/KRNA/actions/workflows/tests.yml/badge.svg)](https://github.com/Meseten/KRNA/actions/workflows/tests.yml)
+[![PyPI downloads](https://img.shields.io/pypi/dm/krna)](https://pypi.org/project/krna/)
+
 **KRNA** (`krna` on PyPI) is a gradient-free, swarm-style framework for
 continuous optimization, inspired by the growth habit of running bamboo
 (kawayan): a biphasic strategy that alternates between wide *exploration*
@@ -190,6 +196,25 @@ krna benchmark --trials 30          # ~5 min on a laptop; CSV + plots in results
 ```
 
 Raw telemetry for this table: [`results/logs/benchmark_metrics.csv`](results/logs/benchmark_metrics.csv).
+
+## Ablation studies and stronger opponents
+
+Every SKROA operator can be switched off at construction (`use_biphasic`,
+`use_clamping`, `use_culm_abortion`), and `krna ablation --trials 30` runs the
+full study — full SKROA vs. each crippled variant on every landscape, seeded
+identically, tested with the same Wilcoxon machinery
+(`results/logs/ablation_metrics.csv`). How the algorithm works under the hood:
+[algorithms/SKROA.md](algorithms/SKROA.md).
+
+The benchmark suite can also field **SciPy Differential Evolution** and
+**CMA-ES** (install `pip install scipy cma`) alongside PSO:
+
+```bash
+krna benchmark --trials 30   # SKROA vs PSO + SciPy-DE + CMA-ES (when installed)
+```
+
+Each opponent's CSV row carries its mean evaluation count, so iteration-budget
+and evaluation-budget readings are both possible.
 
 ## Statistical significance testing
 

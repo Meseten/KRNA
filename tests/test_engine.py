@@ -135,5 +135,46 @@ class TestBenchmarkFunctions(unittest.TestCase):
         np.testing.assert_allclose(rosenbrock(x), rosenbrock(x[np.newaxis, :])[0])
 
 
+class TestSKROAAblationToggles(unittest.TestCase):
+    """Ablation switches must disable exactly their operator — and nothing else."""
+
+    @staticmethod
+    def _run(**kwargs) -> dict:
+        optimizer = SKROA(
+            evaluator=lambda X: np.ones(len(X)),  # flat: everyone exploits, no progress
+            bounds=(0.0, 1.0),
+            dim=5,
+            n_agents=20,
+            max_iters=30,
+            seed=3,
+            **kwargs,
+        )
+        return optimizer.optimize()
+
+    def test_culm_abortion_disabled_means_zero_aborts(self) -> None:
+        self.assertEqual(self._run(use_culm_abortion=False)["total_aborts"], 0)
+
+    def test_culm_abortion_enabled_fires_on_flat_landscape(self) -> None:
+        """No improvement is possible on a flat landscape, so pruning must trigger."""
+        self.assertGreater(self._run()["total_aborts"], 0)
+
+    def test_no_biphasic_makes_whole_swarm_explore(self) -> None:
+        """Without the split, no gradients are probed: exactly N x iters evals."""
+        biphasic_off = self._run(use_biphasic=False)
+        self.assertEqual(biphasic_off["total_evals"], 20 * 30)
+        self.assertGreater(self._run()["total_evals"], biphasic_off["total_evals"])
+
+    def test_results_reproducible_under_toggles(self) -> None:
+        """Same seed + same toggles must give identical fitness (no RNG drift)."""
+        a = self._run(use_clamping=False)
+        b = self._run(use_clamping=False)
+        self.assertEqual(a["g_best_fit"], b["g_best_fit"])
+
+    def test_toggle_keys_compose(self) -> None:
+        combo = self._run(use_biphasic=False, use_clamping=False, use_culm_abortion=False)
+        self.assertTrue(np.isfinite(combo["g_best_fit"]))
+        self.assertEqual(combo["total_aborts"], 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

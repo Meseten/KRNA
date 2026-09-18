@@ -1,9 +1,11 @@
 """
-KRNA - Kawayan Rhizome Network Algorithm (SKROA)
-================================================
-A biphasic continuous optimization framework: Rhizome Creep (Lévy-flight
-exploration) alternating with Vertical Shoot (gradient-guided exploitation),
-with Sympodial Clamping anti-collision and Culm-Abortion stagnation pruning.
+KRNA - Kawayan Rhizome Network Algorithm
+========================================
+KRNA is the package; SKROA (Sympodial Kawayan Rhizome Optimization Algorithm)
+is its core engine: a biphasic continuous optimization framework of Rhizome
+Creep (Lévy-flight exploration) alternating with Vertical Shoot
+(gradient-guided exploitation), with Sympodial Clamping anti-collision and
+Culm-Abortion stagnation pruning.
 
 Quick start (single-objective)::
 
@@ -33,7 +35,7 @@ from krna.baselines import PSO
 from krna.mo_skroa import MOSKROA, Archive, get_non_dominated_mask
 from krna.stats import wilcoxon_rank_sum, RankSumResult, bonferroni_correct, cohens_r
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 __all__ = [
     "SKROA",

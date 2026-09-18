@@ -24,6 +24,16 @@ def main():
     bench_parser.add_argument("--iters", type=int, default=500, help="Max iterations (default: 500)")
     bench_parser.add_argument("--trials", type=int, default=15, help="Number of trials (default: 15)")
 
+    # Command: ablation
+    ablation_parser = subparsers.add_parser(
+        "ablation",
+        help="Run SKROA ablation study: measure each operator's contribution"
+    )
+    ablation_parser.add_argument("--dim", type=int, default=10, help="Dimensionality (default: 10)")
+    ablation_parser.add_argument("--agents", type=int, default=50, help="Swarm size (default: 50)")
+    ablation_parser.add_argument("--iters", type=int, default=500, help="Max iterations (default: 500)")
+    ablation_parser.add_argument("--trials", type=int, default=15, help="Number of trials (default: 15)")
+
     # Command: tune
     tune_parser = subparsers.add_parser("tune", help="Run SKROA ML Hyperparameter Tuner on Breast Cancer SVM")
     tune_parser.add_argument("--agents", type=int, default=15, help="Swarm size (default: 15)")
@@ -40,7 +50,11 @@ def main():
     if args.command == "benchmark":
         from krna.benchmarks import execute_benchmarking_suite
         execute_benchmarking_suite(dim=args.dim, n_agents=args.agents, max_iters=args.iters, num_trials=args.trials)
-        
+
+    elif args.command == "ablation":
+        from krna.benchmarks import execute_ablation_suite
+        execute_ablation_suite(dim=args.dim, n_agents=args.agents, max_iters=args.iters, num_trials=args.trials)
+
     elif args.command == "tune":
         from krna.ml_tuning import SKROAMLTuner
         from sklearn.svm import SVC

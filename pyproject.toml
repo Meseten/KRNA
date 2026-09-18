@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krna"
-version = "1.0.1"
-description = "Kawayan Rhizome Network Algorithm (SKROA) - a biphasic continuous optimization framework"
+version = "1.0.2"
+description = "Kawayan Rhizome Network Algorithm - home of SKROA (Sympodial Kawayan Rhizome Optimization Algorithm), a biphasic continuous optimization framework"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

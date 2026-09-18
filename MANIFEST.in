@@ -4,4 +4,5 @@ include CHANGELOG.md
 include CONTRIBUTING.md
 include requirements.txt
 include run.sh
+recursive-include algorithms *.md
 recursive-include tests *.py

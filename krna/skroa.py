@@ -34,14 +34,23 @@ class SKROA:
         gamma_lr: float = 0.05,
         sigma_jitter: float = 1e-4,
         levy_scale: float = 0.01,
-        seed: int = 42
+        seed: int = 42,
+        use_biphasic: bool = True,
+        use_clamping: bool = True,
+        use_culm_abortion: bool = True
     ):
         self.evaluator = evaluator
         self.bounds = bounds
         self.dim = dim
         self.n_agents = n_agents
         self.max_iters = max_iters
-        
+
+        # Ablation switches: disable individual operators to measure their
+        # contribution (see execute_ablation_suite in krna.benchmarks).
+        self.use_biphasic = bool(use_biphasic)
+        self.use_clamping = bool(use_clamping)
+        self.use_culm_abortion = bool(use_culm_abortion)
+
         self.delta_threshold = delta_threshold
         self.tau_stagnation = tau_stagnation
         self.max_stagnation_steps = max_stagnation_steps
@@ -61,6 +70,17 @@ class SKROA:
             raise ValueError(f"bounds must be finite with high > low, got {bounds!r}")
         
         self.rng = np.random.default_rng(seed)
+
+        # Evaluation counter: wraps the evaluator so every batch call — main
+        # swarm evaluations and gradient probes alike — is counted. Exposed in
+        # optimize()'s result as "total_evals" for budget-matched comparisons.
+        self._n_evals = 0
+
+        def _counting_evaluator(X: np.ndarray) -> np.ndarray:
+            self._n_evals += int(np.atleast_2d(X).shape[0])
+            return evaluator(X)
+
+        self.evaluator = _counting_evaluator
 
     def _compute_vectorized_gradient(
         self,
@@ -117,27 +137,32 @@ class SKROA:
             convergence_curve[it] = g_best_fit
 
             # 1. Biphasic State Transition (Dynamic Median ensures exactly 50% exploit)
-            if self.delta_threshold is not None:
-                current_threshold = self.delta_threshold
+            if self.use_biphasic:
+                if self.delta_threshold is not None:
+                    current_threshold = self.delta_threshold
+                else:
+                    current_threshold = np.median(current_fitness)
+
+                states = np.where(current_fitness <= current_threshold, 1, 0)
             else:
-                current_threshold = np.median(current_fitness)
-                
-            states = np.where(current_fitness <= current_threshold, 1, 0)
-            
+                # Ablation: no split — the whole swarm explores (pure Lévy search)
+                states = np.zeros(self.n_agents, dtype=int)
+
             # 2. Dynamic Memory Pruning (Culm-Abortion)
-            positions, states, stagnation_counters, aborted_mask = apply_culm_abortion(
-                positions=positions,
-                current_fitness=current_fitness,
-                previous_fitness=previous_fitness,
-                states=states,
-                stagnation_counters=stagnation_counters,
-                global_best_position=g_best_pos,
-                tau_stagnation=self.tau_stagnation,
-                max_stagnation_steps=self.max_stagnation_steps,
-                bounds=self.bounds,
-                rng=self.rng
-            )
-            abort_counts += np.sum(aborted_mask)
+            if self.use_culm_abortion:
+                positions, states, stagnation_counters, aborted_mask = apply_culm_abortion(
+                    positions=positions,
+                    current_fitness=current_fitness,
+                    previous_fitness=previous_fitness,
+                    states=states,
+                    stagnation_counters=stagnation_counters,
+                    global_best_position=g_best_pos,
+                    tau_stagnation=self.tau_stagnation,
+                    max_stagnation_steps=self.max_stagnation_steps,
+                    bounds=self.bounds,
+                    rng=self.rng
+                )
+                abort_counts += np.sum(aborted_mask)
             
             new_positions = np.copy(positions)
             
@@ -168,12 +193,13 @@ class SKROA:
                 new_positions[s1_mask] -= clipped_step - jitter
 
             # 5. Apply Sympodial Clamping (Anti-Collision Repulsion)
-            new_positions = apply_sympodial_clamping(
-                positions=new_positions,
-                fitness=current_fitness,
-                epsilon_clamp=self.epsilon_clamp,
-                bounds=self.bounds
-            )
+            if self.use_clamping:
+                new_positions = apply_sympodial_clamping(
+                    positions=new_positions,
+                    fitness=current_fitness,
+                    epsilon_clamp=self.epsilon_clamp,
+                    bounds=self.bounds
+                )
             
             # 6. Finalize Iteration
             positions = np.clip(new_positions, low, high)
@@ -186,5 +212,6 @@ class SKROA:
             "g_best_fit": g_best_fit,
             "convergence_curve": convergence_curve,
             "exec_time_ms": exec_time * 1000.0,
-            "total_aborts": abort_counts
+            "total_aborts": abort_counts,
+            "total_evals": self._n_evals
         }

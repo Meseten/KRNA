@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-18
+
+### Added
+
+- Ablation-study support: SKROA constructors accept `use_biphasic`,
+  `use_clamping`, and `use_culm_abortion` toggles, and `krna ablation`
+  (or `execute_ablation_suite`) measures each operator's contribution with
+  seed-paired Wilcoxon tests against full SKROA.
+- Benchmark opponents beyond PSO: SciPy's `differential_evolution` and CMA-ES
+  (via the optional `cma` package) join the panel with the same rank-sum
+  reporting; per-algorithm evaluation counts are logged for budget-matched
+  comparisons.
+- `algorithms/SKROA.md`: operator-by-operator explainer with pseudocode, the
+  bamboo metaphor mapping, and honest positioning guidance.
+- README badges (PyPI version/downloads, Python versions, license, CI status).
+
+### Fixed
+
+- Naming consistency: SKROA expands to "Sympodial Kawayan Rhizome Optimization
+  Algorithm" (KRNA remains the package/Network name) in `pyproject.toml`,
+  package docstring, and CLI docstring.
+
 ## [1.0.1] - 2026-09-18
 
 ### Added
