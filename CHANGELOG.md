@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-18
+
+### Added
+
+- PyPI publishing via GitHub Actions Trusted Publishing (`.github/workflows/publish.yml`): builds the sdist and wheel and uploads them on version tags (`v*`) using OIDC — no API tokens.
+- CI workflow (`.github/workflows/tests.yml`) running the 50-test unittest suite on Python 3.11–3.13 for every push and pull request to `main`.
+- README: random forest hyperparameter tuning example (`SKROAMLTuner` with `RandomForestClassifier`).
+
 ## [1.0.0] - 2026-09-18
 
 ### Added
